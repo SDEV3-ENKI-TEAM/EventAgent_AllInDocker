@@ -88,3 +88,13 @@ docker-compose down
 └─ event/
    └─ events.jsonl   # (파일 exporter 사용 시)
 ```
+
+## 기존 docker-compose
+
+### 1) 기존 변경 전 docker-compose
+
+-   bak
+
+### 2) health check docker-compose
+
+-   bak(2)
