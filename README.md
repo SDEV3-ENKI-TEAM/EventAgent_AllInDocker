@@ -56,45 +56,6 @@ docker exec -it kafka bash -lc 'kafka-console-consumer --bootstrap-server kafka:
 docker-compose logs -f
 
 # 특정 서비스 로그 (예: otelcol)
-docker-compose logs -f otelcol
-
-# 중지/정리
-docker-compose down
-```
-
-## 트러블슈팅
-
--   **Kafka 소비가 비어 있음**
-
-    -   토픽 존재 확인:
-        ```powershell
-        docker exec -it kafka bash -lc 'kafka-topics --bootstrap-server kafka:29092 --list'
-        ```
-
-## 폴더 구조(예시)
-
-```
-.
-├─ docker-compose.yml
-├─ OTEL/
-│  ├─ otelcol-contrib.zip
-│  └─ otelcol-contrib/
-│     └─ otel-collector-config.yaml
-├─ sigma_matcher/
-│  ├─ Dockerfile
-│  ├─ main.go
-│  └─ rules/
-│     └─ rules/windows/...
-└─ event/
-   └─ events.jsonl   # (파일 exporter 사용 시)
-```
-
-## 기존 docker-compose
-
-### 1) 기존 변경 전 docker-compose
-
--   bak
-
-### 2) health check docker-compose
+docker-compose lo전 docker-compose
 
 -   bak(2)
