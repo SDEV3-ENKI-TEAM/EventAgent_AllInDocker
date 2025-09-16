@@ -16,16 +16,16 @@ services:
             nofile: { soft: 65536, hard: 65536 }
         volumes:
             - opensearch-data1:/usr/share/opensearch/data
-        ports:
-            - "9200:9200"
-            - "9600:9600"
+        # 외부 노출 불필요하면 포트 매핑 제거(필요 시 임시로 열기)
+        # ports:
+        #   - "9200:9200"
+        #   - "9600:9600"
         networks: [opensearch-net]
-        # ── 추가: OpenSearch 준비 여부 확인
         healthcheck:
             test:
                 [
                     "CMD-SHELL",
-                    "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s || exit 1",
+                    "wget -qO- http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s || exit 1",
                 ]
             interval: 20s
             timeout: 10s
@@ -47,12 +47,11 @@ services:
         volumes:
             - opensearch-data2:/usr/share/opensearch/data
         networks: [opensearch-net]
-        # ── 추가: OpenSearch 준비 여부 확인
         healthcheck:
             test:
                 [
                     "CMD-SHELL",
-                    "curl -fsS http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s || exit 1",
+                    "wget -qO- http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=60s || exit 1",
                 ]
             interval: 20s
             timeout: 10s
@@ -65,9 +64,10 @@ services:
             OPENSEARCH_HOSTS: '["http://opensearch-node1:9200","http://opensearch-node2:9200"]'
             DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
             OPENSEARCH_OBSERVABILITY_ENABLED: "true"
-            data_source.enabled: true
-        ports:
-            - "5601:5601"
+            "data_source.enabled": "true" # ← 문자열로 수정
+        # 필요 시에만 UI 공개
+        # ports:
+        #   - "5601:5601"
         networks: [opensearch-net]
 
     jaeger:
@@ -78,27 +78,18 @@ services:
             - ES_TAGS_AS_FIELDS_ALL=true
             - OTEL_TRACES_SAMPLER=always_off
         command:
-            [
-                "--collector.otlp.enabled=true",
-                "--es.server-urls=http://opensearch-node1:9200,http://opensearch-node2:9200",
-                "--es.version=7",
-            ]
-        ports:
-            - "16686:16686"
-            - "4317:4317"
-            - "4318:4318"
-            - "14250:14250"
-            - "14268:14268"
-            - "6831:6831/udp"
-            - "6832:6832/udp"
+            - "--collector.otlp.enabled=true"
+            - "--es.server-urls=http://opensearch-node1:9200,http://opensearch-node2:9200"
+            - "--es.version=7"
+        # 필요 시에만 UI(16686) 잠깐 열기
+        # ports:
+        #   - "16686:16686"
         networks: [opensearch-net]
-        # ── 추가: OpenSearch가 healthy 되면 Jaeger 기동
         depends_on:
             opensearch-node1:
                 condition: service_healthy
             opensearch-node2:
                 condition: service_healthy
-        # ── 추가: Jaeger 자체 헬스체크(UI 핸들러)
         healthcheck:
             test:
                 [
@@ -122,17 +113,21 @@ services:
         image: confluentinc/cp-kafka:7.6.1
         container_name: kafka
         depends_on: [zookeeper]
-        ports: ["9092:9092"]
+        # 외부 공개는 19092 하나만
+        ports:
+            - "19092:19092"
         environment:
             KAFKA_BROKER_ID: 1
-            KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+            KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+            # 내부(컨테이너 간) 29092 / 외부(다른 EC2) 19092
+            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+            KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:19092
+            KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://${PRIVATE_IP}:19092
+            KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
             KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
             KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
         networks: [opensearch-net]
 
-    # ───────────────────────────── 추가: Sigma Router ─────────────────────────────
     sigma-router:
         build:
             context: ./sigma_matcher
@@ -140,23 +135,20 @@ services:
         image: sigma-router:local
         container_name: sigma-router
         command:
-            [
-                "-listen",
-                ":55680",
-                "-forward",
-                "otelcol:4320",
-                "-tmptrace",
-                "otelcol:4321",
-                "-rules",
-                "rules/rules/windows",
-                "-v",
-            ]
+            - "-listen"
+            - ":55680"
+            - "-forward"
+            - "otelcol:4320"
+            - "-tmptrace"
+            - "otelcol:4321"
+            - "-rules"
+            - "rules/rules/windows"
+            - "-v"
         volumes:
             - ./sigma_matcher/rules:/app/rules:ro
         networks: [opensearch-net]
         restart: unless-stopped
 
-    # ───────────────────────────── 추가: OTEL Collector ──────────────────────────
     otelcol:
         image: otel/opentelemetry-collector-contrib:0.133.0
         container_name: otelcol
@@ -165,7 +157,7 @@ services:
             - ./OTEL/otelcol-contrib/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
             - ./event:/event
         ports:
-            - "4319:4319"
+            - "4319:4319" # 외부 Agent 유일 수신 포트
         networks: [opensearch-net]
         restart: unless-stopped
         depends_on:
