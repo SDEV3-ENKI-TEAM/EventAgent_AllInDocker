@@ -82,8 +82,8 @@ services:
             - "--es.server-urls=http://opensearch-node1:9200,http://opensearch-node2:9200"
             - "--es.version=7"
         # 필요 시에만 UI(16686) 잠깐 열기
-        # ports:
-        #   - "16686:16686"
+        ports:
+            - "16686:16686"
         networks: [opensearch-net]
         depends_on:
             opensearch-node1:
