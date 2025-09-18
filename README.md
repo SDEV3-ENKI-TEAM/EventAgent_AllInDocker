@@ -98,3 +98,11 @@ docker-compose down
 ### 2) health check 전 docker-compose
 
 -   bak(2)
+
+## AWS 적재 완료
+
+### 1) Agent 수정
+
+```
+o.Endpoint = new("http://3.38.168.171:4319");
+```
