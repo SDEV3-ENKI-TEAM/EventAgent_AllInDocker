@@ -103,8 +103,9 @@ docker-compose down
 
 ### 코드
 
--   하드코딩함
+-   .env
 
 ```
-endpoint = 3.x.x.x:4319
+OTEL_EXPORTER_OTLP_ENDPOINT=
+OTEL_RESOURCE_ATTRIBUTES=
 ```
