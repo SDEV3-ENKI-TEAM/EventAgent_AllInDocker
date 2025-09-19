@@ -1,4 +1,4 @@
-﻿using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Session;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
@@ -10,6 +10,7 @@ using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
 using System.Security.Principal;
 using System.Xml;
+using DotNetEnv;
 
 namespace EventAgentUnified
 {
@@ -29,16 +30,7 @@ namespace EventAgentUnified
         { 4624, 4625, 4648, 4672, 4663, 4697, 4698, 4699 };
 
     /* ── OpenTelemetry ───────────────────────────────────────────────── */
-    private static readonly TracerProvider Otel =
-        Sdk.CreateTracerProviderBuilder()
-            .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("event-agent"))
-            .AddSource("event.agent")
-            .AddOtlpExporter(o =>
-            {
-              o.Endpoint = new("http://3.39.248.151:4319");
-              o.Protocol = OtlpExportProtocol.Grpc;
-            })
-            .Build();
+    private static readonly TracerProvider? Otel;
 
     private static readonly ActivitySource Src = new("event.agent");
 
@@ -69,6 +61,26 @@ namespace EventAgentUnified
         Console.WriteLine("관리자 권한으로 실행해 주십시오.");
         return;
       }
+
+      Env.TraversePath().Load();
+
+      var endpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")
+                   ?? Env.GetString("OTEL_EXPORTER_OTLP_ENDPOINT");
+
+    if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
+        throw new InvalidOperationException($"Invalid OTLP endpoint: {endpoint}");
+
+    // ▼ 지역 변수로 생성해서 프로그램 종료 시 자동 Dispose
+    using var Otel = Sdk.CreateTracerProviderBuilder()
+        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("event-agent"))
+        .AddSource("event.agent")
+        .AddOtlpExporter(o =>
+        {
+            o.Endpoint = uri;
+            o.Protocol = OtlpExportProtocol.Grpc;
+        })
+        .Build();
+
 
       Console.OutputEncoding = System.Text.Encoding.UTF8;
 
